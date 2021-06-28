@@ -1,0 +1,215 @@
+---
+title: "Primates en Costa Rica"
+output: html_document
+---
+
+
+## Carga de paquetes 
+
+```{r cargapaquetes, message=FALSE, warning=FALSE}
+library(sf)
+library(raster)
+library(dplyr)
+library(spData)
+
+library(leaflet)
+library(plotly)
+library(DT)
+library(RColorBrewer)
+```
+
+## Conjunto de datos 
+
+```{r}
+# Especies de primates en Costa Rica
+Primates <- st_read("https://raw.githubusercontent.com/gf0604-procesamientodatosgeograficos/2021i-datos/main/gbif/primates-cr-registros.csv",
+                    options = c("X_POSSIBLE_NAMES=decimalLongitude",
+                                "Y_POSSIBLE_NAMES=decimalLatitude"),
+                    quiet = TRUE)
+```
+
+```{r}
+# Capa de cantones
+
+Cantones <- st_read("https://raw.githubusercontent.com/gf0604-procesamientodatosgeograficos/2021i-datos/main/ign/delimitacion-territorial-administrativa/cr_cantones_simp_wgs84.geojson",
+                    quiet = TRUE)
+```
+
+```{r}
+# crs 
+
+st_crs(Primates) = 4326
+```
+
+```{r, message=FALSE, warning=FALSE}
+# Cruce espacial con los datos de los cantones 
+
+Primates <- Primates %>% 
+  st_join(Cantones["canton"])
+
+```
+
+
+```{r}
+rownames = FALSE 
+options = list(
+  searchHighlight = TRUE, 
+  language = list(url = "//cdn.datatables.net/plug-ins/1.10.11/i18n/spanish.json"), 
+  pageLength = 5)
+```
+
+
+
+## _Segunda parte_ 
+
+```{r}
+g <- data.frame("Categorie" = rownames(Primates), Primates)
+```
+
+```{r}
+g1 <- g[, c("Categorie", "species", "recordNumber")]
+```
+
+```{r}
+color <- brewer.pal(length(count), "PiYG")
+```
+
+
+# **Gráfico de pastel con cada una de las especies en Costa Rica**
+```{r}
+plot_ly(g1,
+        labels = ~ species, 
+        type = "pie"
+        ) %>%
+  layout(
+    title = "Registros para las especie y el porcentaje total que representa cada una de estas", 
+    xaxis = list(
+      showgrid = FALSE,
+      zeroline = FALSE, 
+      showticklabels = FALSE
+      
+    ),
+    yaxis = list(
+      showgrid = FALSE,
+      zeroline = FALSE, 
+      showticklabels = FALSE
+    )
+    
+  )
+
+```
+
+
+## _Tercera parte_
+
+### Crear variables
+
+```{r}
+AG <- Primates %>% 
+  filter(species == "Ateles geoffroyi")
+
+```
+
+```{r}
+CC <- Primates %>%
+  filter(species == "Cebus capucinus")
+```
+
+```{r}
+AP <- Primates %>%
+  filter(species == "Alouatta palliata")
+```
+
+```{r}
+SO <- Primates %>% 
+  filter(species == "Saimiri oerstedii")
+```
+
+
+# **Mapa de la presencia de primates**
+
+```{r}
+Primates %>%
+  select(stateProvince,
+         canton,
+         eventDate,
+         species) %>%
+  leaflet() %>%
+  addProviderTiles(providers$OpenStreetMap.Mapnik, group = "OpenStreetMap") %>%
+  addProviderTiles(providers$Stamen.Tonerlite, group = "Stamen Toner Life") %>%
+  addProviderTiles(providers$Esri.WorldImagery, group = "Imágenes de ESRI") %>%
+  addCircleMarkers(
+    data = AG,
+    stroke = F,
+    radius = 4,
+    fillColor = "red",
+    fillOpacity = 2,
+    popup = paste(
+      Primates$stateProvince,
+      Primates$canton,
+      Primates$eventDate,
+      Primates$species,
+      sep = "<br/>"
+    ),
+    group = "AG"
+  )%>%
+  
+  addCircleMarkers(
+    data = CC,
+    stroke = F,
+    radius = 4,
+    fillColor = "blue",
+    fillOpacity = 2,
+    popup = paste(
+      Primates$stateProvince,
+      Primates$canton,
+      Primates$eventDate,
+      Primates$species,
+      sep = "<br/>"
+    ),
+    group = "CC"
+) %>%
+  
+  
+    addCircleMarkers(
+    data = AP,
+    stroke = F,
+    radius = 4,
+    fillColor = "aqua marine",
+    fillOpacity = 2,
+    popup = paste(
+      Primates$stateProvince,
+      Primates$canton,
+      Primates$eventDate,
+      Primates$species,
+      sep = "<br/>"
+    ),
+    group = "AP"
+) %>%
+  
+    addCircleMarkers(
+    data = SO,
+    stroke = F,
+    radius = 4,
+    fillColor = "green",
+    fillOpacity = 2,
+    popup = paste(
+      Primates$stateProvince,
+      Primates$canton,
+      Primates$eventDate,
+      Primates$species,
+      sep = "<br/>"
+    ),
+    group = "SO"
+) %>%
+
+  addLayersControl(
+    baseGroups = c("OpenStreetMap", "Stamen Toner Lite", "Imágenes de ESRI"),
+    overlayGroups = c("Primates")
+  ) %>%
+  addMiniMap(
+    tiles = providers$Stamen.OpenStreetMap.Mapnik,
+    position = "bottomleft",
+    toggleDisplay = TRUE
+  )
+```
